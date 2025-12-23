@@ -1,0 +1,879 @@
+--[[
+  -- Q-SYS Server for Axon C1 (3rd Party Mode)
+  Copyright (c) 2025 Hori Shogo / December 2025
+
+  MIT License - https://opensource.org/licenses/MIT
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+--]]
+
+PluginInfo = {
+  Version = "1.0.0",
+  BuildVersion = "1.0.0",
+  Id = "7cc4392a-6d63-45e0-9220-91b72b7b70d4",--<guid>
+  Author = "Hori Shogo",
+  Description =
+[[Q-SYS Server for Axon C1 (3rd Party Mode)]],
+  ShowDebug = true,
+}
+PluginInfo.Name = "Axon~Q-SYS Server for Axon C1 (3rd Party Mode) v"..PluginInfo.Version
+
+function GetColor(props)
+  return { 0, 0, 0 }
+end
+
+function GetPrettyName(props)
+  return "Q-SYS Server for Axon C1 v" .. PluginInfo.Version
+end
+
+PageNames = {"Controls","Help"}
+function GetPages(props)
+  local pages = {}
+  for ix,name in ipairs(PageNames) do
+    table.insert(pages, {name = PageNames[ix]})
+  end
+  return pages
+end
+
+function GetProperties()
+  local props = {}
+  table.insert(props, {
+    Name = "Gain Count",
+    Type = "integer",
+    Min = 1, Max = 256,
+    Value = 1,
+    Header = "Value must be number between 1 and 256",
+  })
+  table.insert(props, {
+    Name = "Toggle Count",
+    Type = "integer",
+    Min = 1, Max = 256,
+    Value = 1,
+    Header = "Value must be number between 1 and 256",
+  })
+  table.insert(props, {
+    Name = "Trigger Count",
+    Type = "integer",
+    Min = 1, Max = 256,
+    Value = 1,
+    Header = "Value must be number between 1 and 256",
+  })
+  table.insert(props, {
+    Name = "Named Controls Name Count",
+    Type = "integer",
+    Min = 1, Max = 256,
+    Value = 1,
+    Header = "Value must be number between 1 and 256",
+  })
+  table.insert(props, {
+    Name = "To Controls Count",
+    Type = "integer",
+    Min = 1, Max = 256,
+    Value = 1,
+    Header = "Value must be number between 1 and 256",
+  })
+  return props
+end
+
+function GetControls(props)
+  local ctrls = {}
+  table.insert(ctrls, {
+    Name = "Port",
+    ControlType = "Knob",
+    ControlUnit = "Integer",
+    Count = 1,
+    Min = 1,
+    Max = 65535,
+    DefaultValue = 1800,
+    UserPin = true,
+    PinStyle = "Both",
+  })
+  table.insert(ctrls, {
+    Name = "Status",
+    ControlType = "Indicator",
+    IndicatorType = "Status",
+    Count = 1,
+    UserPin = true,
+    PinStyle = "Output",
+  })
+  table.insert(ctrls, {
+    Name = "Msg",
+    ControlType = "Indicator",
+    IndicatorType = "Text",
+    Count = 1,
+    UserPin = true,
+    PinStyle = "Output",
+  })
+  table.insert(ctrls, {
+    Name = "Gain",
+    ControlType = "Knob",
+    ControlUnit = "dB",
+    Min = -100,
+    Max = 20,
+    DefaultValue = 0,
+    Count = props["Gain Count"].Value,
+    UserPin = true,
+    PinStyle = "Both",
+  })
+  table.insert(ctrls, {
+    Name = "Toggle",
+    ControlType = "Button",
+    ButtonType = "Toggle",
+    Count = props["Toggle Count"].Value,
+    UserPin = true,
+    PinStyle = "Both",
+  })
+  table.insert(ctrls, {
+    Name = "Trigger",
+    ControlType = "Button",
+    ButtonType = "Trigger",
+    Count = props["Trigger Count"].Value,
+    UserPin = true,
+    PinStyle = "Both",
+  })
+  table.insert(ctrls, {
+    Name = "TriggerLED",
+    ControlType = "Indicator",
+    IndicatorType = "Led",
+    Count = props["Trigger Count"].Value,
+    UserPin = true,
+    PinStyle = "Output",
+  })
+  table.insert(ctrls, {
+    Name = "Named Controls Name",
+    ControlType = "Text",
+    Count = props["Named Controls Name Count"].Value,
+    UserPin = true,
+    PinStyle = "Both",
+  })
+  table.insert(ctrls, {
+    Name = "To Controls",
+    ControlType = "Text",
+    Count = props["To Controls Count"].Value,
+    UserPin = true,
+    PinStyle = "Both",
+  })
+  return ctrls
+end
+
+function GetControlLayout(props)
+  local layout = {}
+  local graphics = {}
+  local CurrentPage = PageNames[props["page_index"].Value]
+  
+  local Colors = {Black={0,0,0},Black0={0,0,0,0},White={255,255,255}}
+  local g_count = props["Gain Count"].Value
+  local t_count = props["Toggle Count"].Value
+  local tri_count = props["Trigger Count"].Value
+  local n_count = props["Named Controls Name Count"].Value
+  local to_count = props["To Controls Count"].Value
+  
+  local labels = {size={64,16}}
+  local ctrls = {size={label={36,16}, status={192,16}, text={128,16}, knob={36,36}, btn={36,16}, led={16,16}} }
+  
+  -- Calculate maximum X position for all controls
+  local c_Ctrls = {"Named Controls Name","To Controls","Gain", "Toggle", "Trigger", "TriggerLED"}
+  local c_Counts = {n_count, to_count, g_count, t_count, tri_count, tri_count}
+  local c_Size = {ctrls.size.text, ctrls.size.text, ctrls.size.knob, ctrls.size.btn, ctrls.size.btn, ctrls.size.led}
+  local c_Space = {128,128,36,36,36,36}
+  local c_Y =  {134,166,198,245,277,309}
+  
+  if CurrentPage == "Controls" then
+    local maxX = 360 -- Initial minimum width
+    for c_index, ctrlName in ipairs(c_Ctrls) do
+      if c_Counts[c_index] > 0 then
+        local xbase = ctrlName == "TriggerLED" and 130 or 120
+        local lastIndex = c_Counts[c_index]
+        local lastXPos = xbase + c_Space[c_index] * (lastIndex - 1)
+        local controlEndX = lastXPos + c_Size[c_index][1] -- X position + width
+        maxX = math.max(maxX, controlEndX)
+      end
+    end
+    local groupBoxWidth = maxX + 20 -- Add 20px padding from rightmost control
+  
+    -- GroupBoxes, Header
+    table.insert(graphics, {Type = "GroupBox", Fill = Colors.Black0, StrokeColor = Colors.Black, CornerRadius = 8, StrokeWidth = 1, Position = {0,0}, Size = {groupBoxWidth, 350}})
+    table.insert(graphics, {Type = "Header", Text = "Q-SYS Server for Axon C1 (3rd Party Mode)", Position = {20,3}, Color = Colors.Black, Size = {320,40}, FontSize = 12, HTextAlign = "Center"})
+  
+    -- Labels
+    local texts = {'Port','Status','Message','Named Controls Name','To Controls','Gain','Toggle','Trigger','TriggerLED'}
+    local textsPos = {{54,54},{54,70},{54,102},{40,126},{54,166},{54,198},{54,245},{54,277},{54,309}}
+  
+    for i = 1, #texts do
+      table.insert(graphics, {
+        Type = "Text",
+        Text = texts[i],
+        Position = textsPos[i],
+        Size = i == 4 and {78,32} or labels.size,
+        Font = "Roboto",
+        HTextAlign = "Left",
+      })
+    end
+  
+    -- Controls
+    for c_index, ctrlName in ipairs(c_Ctrls) do
+      for index = 1, c_Counts[c_index] do
+        local suffix = (c_Counts[c_index] == 1 and index == 1) and "" or " " .. index
+        local xbase = ctrlName == "TriggerLED" and 130 or 120
+        local xpos = xbase + c_Space[c_index] * (index - 1)
+        local ypos = c_Y[c_index]
+  
+        layout[ctrlName .. suffix] = {
+          PrettyName = ctrlName .. "~" .. index,
+          Style = ctrlName == "Gain" and "Knob"
+              or ctrlName == "Named Controls Name" and "ComboBox"
+              or ctrlName == "To Controls" and "ComboBox"
+              or nil,
+          Position = {xpos, ypos},
+          Size = c_Size[c_index],
+          Margin = ctrlName == "TriggerLED" and 3 or nil,
+        }
+      end
+    end
+  
+    -- Fixed controls
+    layout["Port"] = {
+      PrettyName = "Port",
+      Style = "Text",
+      Position = {120,54},
+      Size = ctrls.size.label,
+      TextColor = Colors.Black,
+      Color = Colors.White,
+      CornerRadius = 2,
+      Margin = 0,
+      Padding = 0,
+      HTextAlign = "Center",
+      FontSize = 9
+    }
+  
+    layout["Status"] = {
+      PrettyName = "Status",
+      Style = "Text",
+      Position = {120,70},
+      Size = ctrls.size.status,
+      CornerRadius = 0,
+      Margin = 0,
+      Padding = 0,
+      HTextAlign = "Center",
+      FontSize = 9
+    }
+  
+    layout["Msg"] = {
+      PrettyName = "Message",
+      Style = "Text",
+      Position = {120,102},
+      Size = ctrls.size.status,
+      TextColor = Colors.Black,
+      CornerRadius = 0,
+      Margin = 0,
+      Padding = 0,
+      HTextAlign = "Center",
+      FontSize = 9
+    }
+  elseif CurrentPage == "Help" then
+    table.insert(graphics, {
+      Type = "Text",
+      Text =
+  [[How to Use
+  With the Core’s standard ECP port 1702, communication from C1 is disconnected after 60 seconds.
+  After that, C1 does not recognize that the connection has been lost and continues to send commands, but Core cannot receive them for several seconds.
+  For example, snapshot loading may fail.
+  By using this plugin, the communication will remain constantly connected without being disconnected, and snapshots can be received reliably.
+  
+  Properties
+  Gain Count・・・Number of Gains inside Core that are controlled from C1
+  Toggle Count・・・Number of Toggles inside Core that are controlled from C1
+  Trigger Count・・・Number of Triggers inside Core that are controlled from C1
+  Named Controls Name Count・・・Number of Named Controls Names inside Core that are controlled from C1
+  To Controls Count・・・Number of control destinations inside Core
+  
+  Port・・・The port number on which Core listens. Make sure it does not conflict with ECP 1702 or others.
+  Status・・・Leave as is
+  Message・・・Displays the Tx/Rx communication between C1 and Core
+  Named Controls Name・・・A list of names registered in Named Controls is displayed.
+  Select the target to be controlled from the C1 side.
+  To Controls・・・Select which component the control selected in Named Controls Name will be assigned to.
+  Named Controls Name[idx] corresponds to To Controls[idx].
+  
+  On the C1 side
+  C1 Menu Mode: [3rd Party]
+  3rd Party Devices List: Devicename (e.g. Core)
+  Device Type: [General]
+  Control Port Settings
+  Device IP: [Core IP]
+  Port: [Plugin Setting Port]
+  Proto: TCP
+  
+  In Menu Builder
+  Under the Menu Screen(s) hierarchy
+  
+  Sample
+  //////////////////////////////////////////////////////////////////////////////////////////
+  When loading a snapshot
+  Actions Trigger
+  Destination: [Devicename (e.g. Core)]
+  Payload:
+  csv Snapshot_Controller Load1 1
+  *Snapshot_ControllerLoad1 is the name registered in Named Controls
+  //////////////////////////////////////////////////////////////////////////////////////////
+  When controlling Level
+  Actions Level
+  Level Config
+  Destination: [Devicename (e.g. Core)]
+  Type: Explicit
+  Attributes
+  Min: -100 (as preferred)
+  Max: 20 (as preferred)
+  Step: 1 (as preferred)
+  Precision: 0.0 Trim [Check]
+  
+  Level Set Command:
+  csv GainGain ❶dB
+  CR [Check] LF [Check]
+  *GainGain is the name registered in Named Controls
+  //////////////////////////////////////////////////////////////////////////////////////////
+  Level Query
+  Enable Polling [Check]
+  Interval: 1500 (as preferred)
+  
+  Query Command:
+  cg GainGain
+  CR [Check] LF [Check]
+  
+  Response Command:
+  cv "GainGain" "❶dB" ✪
+  CR [Check] LF [Check]
+  *Must be enclosed in double quotes
+  //////////////////////////////////////////////////////////////////////////////////////////
+  When controlling Mute
+  Mute Config
+  Destination: [Devicename (e.g. Core)]
+  Attributes
+  Inactive State: 0
+  Active State: 1
+  ALT Inactive State: unmuted
+  ALT Active State: muted
+  
+  Mute Set Command:
+  csv GainMute ❶
+  CR [Check] LF [Check]
+  *GainMute is the name registered in Named Controls
+  
+  Mute Query
+  Enable Polling [Check]
+  Interval: 500 (as preferred)
+  
+  Query Command:
+  cg GainMute
+  CR [Check] LF [Check]
+  
+  Response
+  Use Alternative State [Check]
+  
+  Response Command:
+  cv "GainMute" "❶" ✪
+  CR [Check] LF [Check]
+  *Must be enclosed in double quotes]],
+      Position = {0,0},
+      Size = {625,1100},
+      Padding = 5,
+      Font = "Roboto",
+      FontSize = 9,
+      HTextAlign = "Left",
+      VTextAlign = "Top",
+    })
+  end
+  return layout, graphics
+end
+
+if Controls then
+  -- ============================================================================
+  -- QDS Server for Axon C1
+  -- ============================================================================
+  -- Server configuration
+  server = TcpSocketServer.New()
+  sockets = {}
+  -- Current control values
+  syncVals = {}
+  -- Control ranges for position calculation
+  ranges = { min = -100, max = 20 } -- default gain value
+  -- Control name tables
+  local ctrlNames = {}
+  local namectrlNames = {}
+  local nonCtrl = {'Port','Status','TriggerLED','Named Controls Name','To Controls','Msg'}
+  
+  -- ============================================================================
+  -- Helper function to display messages
+  -- ============================================================================
+  function ShowMsg(msg)
+    Controls.Msg.String = msg
+    print(msg) -- Keep console log for debugging
+  end
+  
+  -- ============================================================================
+  -- Helper Functions for Control Name Management
+  -- ============================================================================
+  -- Helper function to check if table contains element
+  function checkContains(table, element)
+    for _, v in ipairs(table) do
+      if v == element then return true end
+    end
+    return false
+  end
+  
+  -- Get control names from Controls table
+  function GetControlNames()
+    ctrlNames = {}
+    for name, control in pairs(Controls) do
+      for _, nonctrl in ipairs(nonCtrl) do
+        if name == nonctrl then goto continue end
+      end
+  
+      if type(control) == "userdata" then
+        if not checkContains(ctrlNames, tostring(name)) then
+          table.insert(ctrlNames, tostring(name))
+        end
+      elseif type(control) == "table" then
+        for i, _ in pairs(control) do
+          if not checkContains(ctrlNames, tostring(name).." "..i) then
+            table.insert(ctrlNames, tostring(name).." "..i)
+          end
+        end
+      end
+      table.sort(ctrlNames)
+      ::continue::
+    end
+    return ctrlNames
+  end
+  
+  -- Get named control names from XML file
+  function GetNamedControlsName()
+    namectrlNames = {}
+    local file = io.open('design/ExternalControls.xml')
+    if file then
+      content = file:read("*all")
+      file:close()
+      for name in content:gmatch('Control Id="([^"]+)"') do
+        if not checkContains(namectrlNames, tostring(name)) then
+          table.insert(namectrlNames, tostring(name))
+        end
+      end
+    end
+    return namectrlNames
+  end
+  
+  -- ============================================================================
+  -- Utility Functions
+  -- ============================================================================
+  -- Convert single control to table format (modifies Controls directly)
+  function ToTable(controlName)
+    if Controls[controlName] and type(Controls[controlName]) ~= 'table' then
+      Controls[controlName] = {Controls[controlName]}
+    end
+  end
+  
+  -- Calculate normalized position (0.0 to 1.0) from value and range
+  function GetPosition(value, min, max)
+    return (value - min) / (max - min) -- offset Value / range
+  end
+  
+  -- Get actual control reference from To Controls mapping string
+  -- Input: "Gain 1" or "Toggle 2" etc. Output: Controls["Gain"][1] or Controls["Toggle"][2]
+  function GetMappedControl(mappingStr)
+    if not mappingStr or mappingStr == "" then return nil end
+    -- Parse control name and index (ex. "Gain 1")
+    local ctrlName, ctrlIdx = mappingStr:match("^(.+)%s+(%d+)$")
+  
+    if ctrlName and ctrlIdx then -- Array control
+      if Controls[ctrlName] and Controls[ctrlName][tonumber(ctrlIdx)] then
+        return Controls[ctrlName][tonumber(ctrlIdx)]
+      end
+    else -- Single control
+      if Controls[mappingStr] then
+        return Controls[mappingStr]
+      end
+    end
+  
+    return nil
+  end
+  
+  -- Broadcast message to all connected C1 clients (ECP format)
+  function PushToC1(cmd)
+    ShowMsg("Tx: " .. cmd:gsub("[\r\n]+", ""))
+    for _, sock in ipairs(sockets) do
+      if sock.IsConnected then
+        sock:Write(cmd)
+      end
+    end
+  end
+  
+  -- Send initial state to newly connected client
+  function SendInitialState(sock)
+    if not sock or not sock.IsConnected then return end
+    ShowMsg("Client connected - Sending initial state")
+    -- Send all controls mapped via Named Controls Name
+    for idx, ctrl in ipairs(Controls["Named Controls Name"]) do
+      local controlName = ctrl.String
+      if controlName and controlName ~= "" then
+        -- Check if it's a Gain control
+        local val = syncVals[controlName .. "_Gain"]
+        if val then
+          local pos = GetPosition(val, ranges.min, ranges.max)
+          local msg = string.format('cv "%s" "%.2fdB" %.2f %.6f\r\n', controlName, val, val, pos)
+          sock:Write(msg)
+        end
+  
+        -- Check if it's a Toggle control
+        val = syncVals[controlName .. "_Toggle"]
+        if val ~= nil then
+          local strVal = (val == 1) and "muted" or "unmuted"
+          local msg = string.format('cv "%s" "%s" %d %d\r\n', controlName, strVal, val, val)
+          sock:Write(msg)
+        end
+      end
+    end
+  end
+  
+  -- ============================================================================
+  -- CSV Parser (C1 to QDS) Parses state changes from C1
+  -- ============================================================================
+  triggerTimers = {}
+  function CreateTimers(idx)
+    triggerTimers[idx] = Timer.New()
+    triggerTimers[idx].EventHandler = function()
+      Controls['TriggerLED'][idx].Boolean = false
+    end
+  end
+  
+  function ParseCSV(data)
+    ShowMsg('Rx: ' .. data)
+    -- Process all controls via Named Controls Name
+    for idx, ctrl in ipairs(Controls["Named Controls Name"]) do
+      local controlName = ctrl.String
+      if controlName and controlName ~= "" then
+        local escapedName = controlName:gsub("%-", "%%-"):gsub("%.", "%%."):gsub("%_", "%%_")
+  
+        -- Check for Gain update (pattern: "csv ControlName -10.5dB")
+        local gainPattern = '^csv%s' .. escapedName .. '%s([%-%d%.]+)dB'
+        local gainValue = data:match(gainPattern)
+        if gainValue then
+          syncVals[controlName .. "_Gain"] = tonumber(gainValue)
+          local mappedCtrl = GetMappedControl(Controls["To Controls"][idx].String)
+          if mappedCtrl then
+            mappedCtrl.Value = tonumber(gainValue)
+          end
+          return
+        end
+  
+        -- Check if this control is mapped to Trigger
+        local mappingStr = Controls["To Controls"][idx].String
+        local isTrigger = mappingStr and mappingStr:find("^Trigger%s")
+  
+        if isTrigger then
+          local triggerPattern = '^csv%s' .. escapedName .. "%s1$"
+          if data:match(triggerPattern) then
+            local mappedCtrl = GetMappedControl(mappingStr)
+            if mappedCtrl then
+              mappedCtrl:Trigger()
+              -- Handle TriggerLED
+              local ctrlName, ctrlIdx = mappingStr:match("^(.+)%s+(%d+)$")
+              if ctrlName == "Trigger" and ctrlIdx then
+                local ledIdx = tonumber(ctrlIdx)
+                if Controls['TriggerLED'] and Controls['TriggerLED'][ledIdx] then
+                  -- Stop existing timer if running
+                  if not triggerTimers[ledIdx] then
+                    CreateTimers(ledIdx)
+                  end
+                  if triggerTimers[ledIdx]:IsRunning() then
+                    triggerTimers[ledIdx]:Stop()
+                  end
+                  -- Turn LED on
+                  Controls['TriggerLED'][ledIdx].Boolean = true
+                  -- Start timer to turn LED off after 0.5 seconds
+                  triggerTimers[ledIdx]:Start(0.5)
+                end
+              end
+            end
+            return
+          end
+        end
+  
+        -- Check for Toggle update (pattern: "csv ControlName 0/1")
+        local togglePattern = '^csv%s' .. escapedName .. "%s([01])$"
+        local toggleValue = data:match(togglePattern)
+        if toggleValue then
+          syncVals[controlName .. "_Toggle"] = tonumber(toggleValue)
+          local mappedCtrl = GetMappedControl(Controls["To Controls"][idx].String)
+          if mappedCtrl then
+            mappedCtrl.Boolean = (toggleValue == "1")
+          end
+          return
+        end
+      end
+    end
+  end
+  
+  -- ============================================================================
+  -- CG Parser (C1 to QDS)
+  -- Parses control queries from C1 and returns current values in ECP format
+  -- Format: cv "ControlName" "StringValue" NumericValue Position
+  -- ============================================================================
+  function ParseCG(data)
+    ShowMsg('Rx: ' .. data)
+    for line in data:gmatch("[^\r\n]+") do
+      -- Check all controls via Named Controls Name
+      for idx, ctrl in ipairs(Controls["Named Controls Name"]) do
+        local controlName = ctrl.String
+        if controlName and controlName ~= "" then
+          local escapedName = controlName:gsub("%-", "%%-"):gsub("%.", "%%.")
+  
+          -- Check for control query (pattern: "cg ControlName")
+          if line:find('^cg%s' .. escapedName .. "$") or line:find('^cg%s' .. escapedName .. '%s') then
+            local val = syncVals[controlName .. "_Gain"] -- Check if it's a Gain control
+            if val then
+              local pos = GetPosition(val, ranges.min, ranges.max)
+              PushToC1(string.format('cv "%s" "%.2fdB" %.2f %.6f\r\n', controlName, val, val, pos))
+              return
+            end
+            val = syncVals[controlName .. "_Toggle"] -- Check if it's a Toggle control
+            if val ~= nil then
+              local strVal = (val == 1) and "muted" or "unmuted"
+              PushToC1(string.format('cv "%s" "%s" %d %d\r\n', controlName, strVal, val, val))
+              return
+            end
+          end
+        end
+      end
+    end
+  end
+  
+  -- ============================================================================
+  -- Socket Event Handler
+  -- ============================================================================
+  
+  function SocketHandler(sock, event)
+    if event == TcpSocket.Events.Data then
+      local d = sock:Read(sock.BufferLength)
+      if not d then return end
+      d = d:gsub("[\r\n]+$", "")
+  
+      if d:find("^csv") then
+        ParseCSV(d)
+      elseif d:find("^cg") then
+        ParseCG(d)
+      end
+  
+    elseif event == TcpSocket.Events.Closed or
+           event == TcpSocket.Events.Error or
+           event == TcpSocket.Events.Timeout then
+      
+      ShowMsg("Client disconnected")
+      for instance, s in ipairs(sockets) do
+        if s == sock then
+          table.remove(sockets, instance)
+          break
+        end
+      end
+    end
+  end
+  
+  -- ============================================================================
+  -- Connection Handler
+  -- ============================================================================
+  server.EventHandler = function(sock)
+    table.insert(sockets, sock)
+    sock.EventHandler = SocketHandler
+    SendInitialState(sock)
+  end
+  
+  -- ============================================================================
+  -- Initialization - Convert single controls to table format
+  -- ============================================================================
+  for name, _ in pairs(Controls) do
+    if name~='Port' and name~='Status' and name~='Msg' then
+      ToTable(tostring(name))
+    end
+  end
+  
+  -- ============================================================================
+  -- Set control choices for dropdowns
+  -- ============================================================================
+  -- Populate To Controls dropdown choices
+  for _, ctrl in ipairs(Controls['To Controls']) do
+    ctrl.Choices = GetControlNames()
+  end
+  
+  -- Populate Named Controls Name dropdown choices
+  for _, ctrl in ipairs(Controls['Named Controls Name']) do
+    ctrl.Choices = GetNamedControlsName()
+  end
+  
+  -- ============================================================================
+  -- UI Event Handlers
+  -- ============================================================================
+  -- Setup event handlers for Named Controls Name changes
+  for idx, ctrl in ipairs(Controls["Named Controls Name"]) do
+    ctrl.EventHandler = function(c)
+      local controlName = c.String
+      if controlName and controlName ~= "" then
+        -- Initialize sync values when control name changes
+        if Controls["To Controls"] and Controls["To Controls"][idx] then
+          local mappedCtrl = GetMappedControl(Controls["To Controls"][idx].String)
+          if mappedCtrl then
+            if mappedCtrl.Value ~= nil then
+              syncVals[controlName .. "_Gain"] = mappedCtrl.Value
+            elseif mappedCtrl.Boolean ~= nil then
+              syncVals[controlName .. "_Toggle"] = mappedCtrl.Boolean and 1 or 0
+            end
+          end
+        end
+      end
+    end
+  end
+  
+  -- Setup event handlers for To Controls mapping changes
+  for idx, ctrl in ipairs(Controls["To Controls"]) do
+    ctrl.EventHandler = function(c)
+      local mappingStr = c.String
+      local mappedCtrl = GetMappedControl(mappingStr)
+      
+      ShowMsg(string.format("Mapping changed [%d]: %s", idx, mappingStr or "none"))
+      
+      if mappedCtrl and Controls["Named Controls Name"] and Controls["Named Controls Name"][idx] then
+        local controlName = Controls["Named Controls Name"][idx].String
+        if controlName and controlName ~= "" then
+          -- Initialize sync value from mapped control
+          if mappedCtrl.Value ~= nil then
+            syncVals[controlName .. "_Gain"] = mappedCtrl.Value
+          elseif mappedCtrl.Boolean ~= nil then
+            syncVals[controlName .. "_Toggle"] = mappedCtrl.Boolean and 1 or 0
+          end
+          
+          -- Setup event handler on the mapped control
+          mappedCtrl.EventHandler = function(mc)
+            -- Check control type by mapping string to determine correct handling
+            local isToggle = mappingStr and mappingStr:find("^Toggle%s")
+            
+            if isToggle then
+              -- Toggle control changed
+              local toggleVal = mc.Boolean and 1 or 0
+              syncVals[controlName .. "_Toggle"] = toggleVal
+              local strVal = (toggleVal == 1) and "muted" or "unmuted"
+              local msg = string.format('cv "%s" "%s" %d %d\r\n', controlName, strVal, toggleVal, toggleVal)
+              PushToC1(msg)
+            elseif mc.Value ~= nil then
+              -- Gain control changed
+              syncVals[controlName .. "_Gain"] = mc.Value
+              local msg = string.format('csv %s %.2fdB\r\n', controlName, mc.Value)
+              PushToC1(msg)
+            end
+          end
+        end
+      end
+    end
+  end
+  
+  -- ============================================================================
+  -- Initialize control values and event handlers
+  -- ============================================================================
+  for idx, ctrl in ipairs(Controls["Named Controls Name"]) do
+    local controlName = ctrl.String
+    if controlName and controlName ~= "" then
+      local mappingStr = Controls["To Controls"][idx].String
+      local mappedCtrl = GetMappedControl(mappingStr)
+  
+      if mappedCtrl then
+        -- Initialize sync value from mapped control
+        if mappedCtrl.Value ~= nil then
+          syncVals[controlName .. "_Gain"] = mappedCtrl.Value
+        elseif mappedCtrl.Boolean ~= nil then
+          syncVals[controlName .. "_Toggle"] = mappedCtrl.Boolean and 1 or 0
+        end
+  
+        -- Setup event handler on the mapped control
+        mappedCtrl.EventHandler = function(mc)
+          -- Check control type by mapping string to determine correct handling
+          local isToggle = mappingStr and mappingStr:find("^Toggle%s")
+  
+          if isToggle then
+            -- Toggle control changed
+            local toggleVal = mc.Boolean and 1 or 0
+            syncVals[controlName .. "_Toggle"] = toggleVal
+            local strVal = (toggleVal == 1) and "muted" or "unmuted"
+            local msg = string.format('cv "%s" "%s" %d %d\r\n', controlName, strVal, toggleVal, toggleVal)
+            PushToC1(msg)
+          elseif mc.Value ~= nil then
+            -- Gain control changed
+            syncVals[controlName .. "_Gain"] = mc.Value
+            local msg = string.format('csv %s %.2fdB\r\n', controlName, mc.Value)
+            PushToC1(msg)
+          end
+        end
+      end
+    end
+  end
+  
+  -- ============================================================================
+  -- Server Start/Restart Function with Error Handling
+  -- ============================================================================
+  function Listen()
+    -- Close existing server safely
+    pcall(function() server:Close() end)
+  
+    Timer.CallAfter(function()
+      sockets = {}
+      local port = math.floor(tonumber(Controls.Port.Value))
+      -- Use pcall to catch port binding errors
+      local success, err = pcall(function() server:Listen(port) end)
+  
+      if not success then
+        ShowMsg(string.format("Error: Port %d unavailable", port))
+        Controls.Status.Value = 2
+        Controls.Status.String = string.format("Port %d unavailable", port)
+      else
+        ShowMsg(string.format("Listening on port %d", port))
+        Controls.Status.Value = 0
+        Controls.Status.String = string.format("Listening on port %d", port)
+      end
+    end, 0.1)
+  end
+  
+  -- Setup port change handler
+  Controls.Port.EventHandler = Listen
+  
+  -- Start server with error handling
+  local port = math.floor(tonumber(Controls.Port.Value))
+  local success, err = pcall(function()
+    server:Listen(port)
+  end)
+  
+  if not success then
+    ShowMsg(string.format("Error: Port %d unavailable on startup", port))
+    if Controls.Status then
+      Controls.Status.Value = 2
+      Controls.Status.String = string.format("Port %d unavailable", port)
+    end
+  else
+    ShowMsg(string.format("Server started on port %d", port))
+    if Controls.Status then
+      Controls.Status.Value = 0
+      Controls.Status.String = string.format("Listening on port %d", port)
+    end
+  end
+end
